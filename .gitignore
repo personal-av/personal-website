@@ -1,0 +1,10 @@
+# Keep the encrypted vault out of the repo.
+# Only admin.html and dashboard.html should be published.
+
+# Your encrypted data file (never upload this)
+data.js
+
+# Any backup copies
+*_bak.js
+*.bak
+data*.js
