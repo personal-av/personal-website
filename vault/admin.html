@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        .tab-button {
+            transition: all 0.2s;
+        }
+        .tab-button:hover {
+            background-color: #f3f4f6;
+        }
+        .tab-button.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .notification.success {
+            background-color: #10b981;
+            color: white;
+        }
+        .notification.error {
+            background-color: #ef4444;
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+        .table-container {
+            overflow-x: auto;
+            overflow-y: visible;
+        }
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 200px !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-layout {
+                flex-direction: column !important;
+            }
+            .sidebar {
+                width: 100% !important;
+                margin-bottom: 1rem;
+            }
+            #tabsList {
+                display: flex !important;
+                flex-direction: row !important;
+                flex-wrap: wrap !important;
+                gap: 0.5rem !important;
+            }
+            #tabsList button {
+                flex: 0 0 auto !important;
+            }
+            .table-container {
+                margin: 0 -1rem;
+                padding: 0 1rem;
+            }
+            td, th {
+                min-width: 100px;
+                font-size: 14px;
+            }
+            h1 {
+                font-size: 1.5rem !important;
+            }
+            h2 {
+                font-size: 1.25rem !important;
+            }
+        }
+
+        @media (max-width: 640px) {
+            td, th {
+                min-width: 80px;
+                font-size: 13px;
+                padding: 8px !important;
+            }
+            .tab-button {
+                font-size: 14px;
+                padding: 8px 12px !important;
+            }
+            button {
+                padding: 10px 16px !important;
+                font-size: 14px !important;
+            }
+            .modal-content {
+                width: 95% !important;
+                max-width: 95% !important;
+                padding: 16px !important;
+            }
+            input[type="text"],
+            input[type="password"],
+            select {
+                font-size: 16px !important; /* Prevents zoom on iOS */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Main Container -->
+    <div id="app" class="min-h-screen">
+        <!-- Loading Screen -->
+        <div id="loadingScreen" class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading...</p>
+            </div>
+        </div>
+
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen" class="hidden flex items-center justify-center min-h-screen">
+            <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+                <h1 class="text-3xl font-bold mb-4 text-center">Dashboard Admin</h1>
+                <p class="text-gray-600 mb-6 text-center">Create or load your encrypted dashboard data</p>
+
+                <div class="space-y-4">
+                    <button onclick="app.createNewFile()" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition">
+                        Create New Dashboard
+                    </button>
+                    <button onclick="app.loadExistingFile()" class="w-full bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition">
+                        Load Existing Dashboard
+                    </button>
+                </div>
+
+                <div id="browserInfo" class="mt-6 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
+                    <p id="browserInfoText"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Interface -->
+        <div id="mainInterface" class="hidden">
+            <!-- Header -->
+            <header class="bg-white shadow">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <h1 class="text-2xl font-bold text-gray-900">Dashboard Admin</h1>
+                        <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+                            <button onclick="app.showPasswordModal()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm sm:text-base flex-1 sm:flex-none">
+                                Change Password
+                            </button>
+                            <button onclick="app.save()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm sm:text-base flex-1 sm:flex-none">
+                                Save
+                            </button>
+                            <button onclick="app.changeFileLocation()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm sm:text-base flex-1 sm:flex-none">
+                                Change File
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div class="flex flex-col md:flex-row gap-6 main-layout">
+                    <!-- Sidebar: Tabs -->
+                    <div class="w-full md:w-64 bg-white rounded-lg shadow p-4 sidebar">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="font-semibold text-gray-700">Tabs</h2>
+                            <button onclick="app.showAddTabModal()" class="text-blue-600 hover:text-blue-700 font-bold text-xl">
+                                +
+                            </button>
+                        </div>
+                        <div id="tabsList" class="space-y-2">
+                            <!-- Tabs will be rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Main Content Area -->
+                    <div class="flex-1 bg-white rounded-lg shadow p-6">
+                        <div id="noTabsMessage" class="text-center py-12 text-gray-500">
+                            <p class="text-xl mb-2">No tabs yet</p>
+                            <p>Click the + button to create your first tab</p>
+                        </div>
+
+                        <div id="tabContent" class="hidden">
+                            <!-- Tab Header -->
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+                                <div class="flex flex-wrap items-center gap-2 sm:gap-4">
+                                    <h2 id="currentTabName" class="text-xl sm:text-2xl font-bold text-gray-800"></h2>
+                                    <button onclick="app.showRenameTabModal()" class="text-xs sm:text-sm text-blue-600 hover:text-blue-700">
+                                        Rename
+                                    </button>
+                                    <button onclick="app.deleteCurrentTab()" class="text-xs sm:text-sm text-red-600 hover:text-red-700">
+                                        Delete Tab
+                                    </button>
+                                </div>
+                                <button onclick="app.showAddColumnModal()" class="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm sm:text-base">
+                                    Add Column
+                                </button>
+                            </div>
+
+                            <!-- Table -->
+                            <div class="table-container">
+                                <table id="dataTable" class="w-full border-collapse">
+                                    <thead>
+                                        <tr id="tableHeader" class="bg-gray-50">
+                                            <!-- Column headers will be rendered here -->
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tableBody">
+                                        <!-- Rows will be rendered here -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Add Row Button -->
+                            <button onclick="app.showAddRowModal()" class="mt-4 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm sm:text-base">
+                                Add Row
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modalContainer"></div>
+
+    <script>
+        // ============================================================================
+        // ENCRYPTION MANAGER
+        // ============================================================================
+        class EncryptionManager {
+            // PBKDF2 iterations (OWASP-recommended minimum).
+            static ITERATIONS = 600000;
+
+            static async encrypt(data, password) {
+                try {
+                    // Generate random salt and IV
+                    const salt = crypto.getRandomValues(new Uint8Array(16));
+                    const iv = crypto.getRandomValues(new Uint8Array(12));
+
+                    // Derive key from password
+                    const key = await this.deriveKey(password, salt);
+
+                    // Convert data to JSON string and encode
+                    const jsonString = JSON.stringify(data);
+                    const encoder = new TextEncoder();
+                    const dataBuffer = encoder.encode(jsonString);
+
+                    // Encrypt data
+                    const encryptedBuffer = await crypto.subtle.encrypt(
+                        {
+                            name: 'AES-GCM',
+                            iv: iv
+                        },
+                        key,
+                        dataBuffer
+                    );
+
+                    // Combine salt + iv + encrypted data
+                    const encryptedArray = new Uint8Array(encryptedBuffer);
+                    const combined = new Uint8Array(salt.length + iv.length + encryptedArray.length);
+                    combined.set(salt, 0);
+                    combined.set(iv, salt.length);
+                    combined.set(encryptedArray, salt.length + iv.length);
+
+                    // Convert to base64
+                    return btoa(String.fromCharCode(...combined));
+                } catch (error) {
+                    console.error('Encryption error:', error);
+                    throw new Error('Encryption failed');
+                }
+            }
+
+            static async decrypt(encryptedString, password) {
+                try {
+                    // Decode base64 and split into salt, IV, and ciphertext
+                    const combined = Uint8Array.from(atob(encryptedString), c => c.charCodeAt(0));
+                    const salt = combined.slice(0, 16);
+                    const iv = combined.slice(16, 28);
+                    const encryptedData = combined.slice(28);
+
+                    const key = await this.deriveKey(password, salt);
+                    const decryptedBuffer = await crypto.subtle.decrypt(
+                        { name: 'AES-GCM', iv: iv },
+                        key,
+                        encryptedData
+                    );
+                    const decoder = new TextDecoder();
+                    return JSON.parse(decoder.decode(decryptedBuffer));
+                } catch (error) {
+                    console.error('Decryption error:', error);
+                    // AES-GCM throws OperationError on a wrong password
+                    if (error.name === 'OperationError' || (error.message && error.message.includes('operation-specific reason'))) {
+                        throw new Error('Wrong password');
+                    }
+                    throw new Error('Decryption failed');
+                }
+            }
+
+            static async deriveKey(password, salt, iterations = EncryptionManager.ITERATIONS) {
+                const encoder = new TextEncoder();
+                const passwordBuffer = encoder.encode(password);
+
+                // Import password as key
+                const passwordKey = await crypto.subtle.importKey(
+                    'raw',
+                    passwordBuffer,
+                    'PBKDF2',
+                    false,
+                    ['deriveBits', 'deriveKey']
+                );
+
+                // Derive key using PBKDF2
+                return await crypto.subtle.deriveKey(
+                    {
+                        name: 'PBKDF2',
+                        salt: salt,
+                        iterations: iterations,
+                        hash: 'SHA-256'
+                    },
+                    passwordKey,
+                    { name: 'AES-GCM', length: 256 },
+                    false,
+                    ['encrypt', 'decrypt']
+                );
+            }
+        }
+
+        // ============================================================================
+        // FILE SYSTEM MANAGER
+        // ============================================================================
+        class FileSystemManager {
+            static isFileSystemAccessSupported() {
+                return 'showOpenFilePicker' in window && 'showSaveFilePicker' in window;
+            }
+
+            static getBrowserType() {
+                const ua = navigator.userAgent;
+                if (ua.includes('Edg/')) return 'edge';
+                if (ua.includes('Chrome') && !ua.includes('Edg/')) return 'chrome';
+                if (ua.includes('Firefox')) return 'firefox';
+                if (ua.includes('Safari') && !ua.includes('Chrome')) return 'safari';
+                return 'unknown';
+            }
+
+            static getBrowserInfo() {
+                const browser = this.getBrowserType();
+                const isSupported = this.isFileSystemAccessSupported();
+
+                if (isSupported) {
+                    return `${browser.charAt(0).toUpperCase() + browser.slice(1)} detected: You'll select your data file once and it will be remembered.`;
+                } else {
+                    return `${browser.charAt(0).toUpperCase() + browser.slice(1)} detected: You'll need to select your data file each time you load.`;
+                }
+            }
+        }
+
+        // ============================================================================
+        // INDEXEDDB HELPER (for File Handles)
+        // ============================================================================
+        class IndexedDBHelper {
+            static async openDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open('DashboardDB', 1);
+
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve(request.result);
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains('files')) {
+                            db.createObjectStore('files');
+                        }
+                    };
+                });
+            }
+
+            static async storeFileHandle(fileHandle) {
+                const db = await this.openDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(['files'], 'readwrite');
+                    const store = transaction.objectStore('files');
+                    const request = store.put(fileHandle, 'dataFileHandle');
+
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve();
+                });
+            }
+
+            static async getStoredFileHandle() {
+                try {
+                    const db = await this.openDB();
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction(['files'], 'readonly');
+                        const store = transaction.objectStore('files');
+                        const request = store.get('dataFileHandle');
+
+                        request.onerror = () => reject(request.error);
+                        request.onsuccess = () => resolve(request.result);
+                    });
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            static async clearFileHandle() {
+                const db = await this.openDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(['files'], 'readwrite');
+                    const store = transaction.objectStore('files');
+                    const request = store.delete('dataFileHandle');
+
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve();
+                });
+            }
+        }
+
+        // ============================================================================
+        // DATA FILE MANAGER
+        // ============================================================================
+        class DataFileManager {
+            constructor() {
+                this.isModernBrowser = FileSystemManager.isFileSystemAccessSupported();
+                this.fileHandle = null;
+            }
+
+            async init() {
+                if (this.isModernBrowser) {
+                    // Try to load stored file handle
+                    this.fileHandle = await IndexedDBHelper.getStoredFileHandle();
+
+                    if (this.fileHandle) {
+                        // Verify we still have permission
+                        const hasPermission = await this.verifyPermission(this.fileHandle);
+                        if (!hasPermission) {
+                            this.fileHandle = null;
+                        }
+                    }
+                }
+            }
+
+            async verifyPermission(fileHandle, requestIfNeeded = true) {
+                const options = { mode: 'readwrite' };
+
+                try {
+                    // Check current permission
+                    if ((await fileHandle.queryPermission(options)) === 'granted') {
+                        return true;
+                    }
+
+                    // Only request permission if explicitly requested (user action required)
+                    if (requestIfNeeded) {
+                        if ((await fileHandle.requestPermission(options)) === 'granted') {
+                            return true;
+                        }
+                    }
+                } catch (error) {
+                    // SecurityError occurs when requesting permission without user gesture
+                    if (error.name === 'SecurityError') {
+                        console.warn('Permission request requires user gesture');
+                        return false;
+                    }
+                    throw error;
+                }
+
+                return false;
+            }
+
+            async selectDataFile() {
+                try {
+                    const [fileHandle] = await window.showOpenFilePicker({
+                        types: [{
+                            description: 'Dashboard Data',
+                            accept: {'text/javascript': ['.js']}
+                        }],
+                        multiple: false
+                    });
+
+                    // Store handle in IndexedDB
+                    await IndexedDBHelper.storeFileHandle(fileHandle);
+                    this.fileHandle = fileHandle;
+
+                    return fileHandle;
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('File selection error:', error);
+                    }
+                    return null;
+                }
+            }
+
+            async createDataFile() {
+                try {
+                    const fileHandle = await window.showSaveFilePicker({
+                        suggestedName: 'data.js',
+                        types: [{
+                            description: 'Dashboard Data',
+                            accept: {'text/javascript': ['.js']}
+                        }]
+                    });
+
+                    // Store handle in IndexedDB
+                    await IndexedDBHelper.storeFileHandle(fileHandle);
+                    this.fileHandle = fileHandle;
+
+                    return fileHandle;
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('File creation error:', error);
+                    }
+                    return null;
+                }
+            }
+
+            async readDataFile(fileHandle) {
+                try {
+                    const file = await fileHandle.getFile();
+                    const content = await file.text();
+
+                    // Extract encrypted data
+                    const match = content.match(/ENCRYPTED_DATA\s*=\s*"([^"]+)"/);
+                    return match ? match[1] : null;
+                } catch (error) {
+                    console.error('File read error:', error);
+                    throw new Error('Failed to read file');
+                }
+            }
+
+            async writeDataFile(fileHandle, encryptedData) {
+                try {
+                    const writable = await fileHandle.createWritable();
+                    const content = `window.ENCRYPTED_DATA = "${encryptedData}";`;
+                    await writable.write(content);
+                    await writable.close();
+                } catch (error) {
+                    console.error('File write error:', error);
+                    // Check if it's a permission error
+                    if (error.name === 'NotAllowedError') {
+                        throw new Error('Permission denied. Please click the Save button manually.');
+                    }
+                    throw new Error('Failed to write file');
+                }
+            }
+
+            showFileSelector() {
+                return new Promise((resolve) => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.js';
+
+                    input.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            try {
+                                const content = await file.text();
+                                const match = content.match(/ENCRYPTED_DATA\s*=\s*"([^"]+)"/);
+                                resolve(match ? match[1] : null);
+                            } catch (error) {
+                                resolve(null);
+                            }
+                        } else {
+                            resolve(null);
+                        }
+                    };
+
+                    input.click();
+                });
+            }
+
+            downloadDataFile(encryptedData, filename = 'data.js') {
+                const content = `window.ENCRYPTED_DATA = "${encryptedData}";`;
+                const blob = new Blob([content], { type: 'text/javascript' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+
+                URL.revokeObjectURL(url);
+            }
+
+            async readData() {
+                if (this.isModernBrowser) {
+                    // Chrome/Edge: Use stored handle or prompt for file
+                    if (!this.fileHandle) {
+                        this.fileHandle = await this.selectDataFile();
+                        if (!this.fileHandle) return null;
+                    }
+
+                    return await this.readDataFile(this.fileHandle);
+                } else {
+                    // Firefox/Safari: Manual selection
+                    return await this.showFileSelector();
+                }
+            }
+
+            async writeData(encryptedData) {
+                if (this.isModernBrowser) {
+                    // Chrome/Edge: Write to same file
+                    if (!this.fileHandle) {
+                        this.fileHandle = await this.createDataFile();
+                        if (!this.fileHandle) return false;
+                    }
+
+                    await this.writeDataFile(this.fileHandle, encryptedData);
+                    return true;
+                } else {
+                    // Firefox/Safari: Download
+                    this.downloadDataFile(encryptedData);
+                    alert('data.js downloaded! Please replace your existing data.js file with the downloaded one.');
+                    return true;
+                }
+            }
+
+            hasFileSelected() {
+                return this.fileHandle !== null;
+            }
+
+            clearFileHandle() {
+                this.fileHandle = null;
+                if (this.isModernBrowser) {
+                    IndexedDBHelper.clearFileHandle();
+                }
+            }
+        }
+
+        // ============================================================================
+        // ADMIN APPLICATION
+        // ============================================================================
+        class AdminApp {
+            constructor() {
+                this.data = { tabs: [], metadata: { version: '1.0' } };
+                this.currentTabId = null;
+                this.password = null;
+                this.isDirty = false;
+                this.fileManager = new DataFileManager();
+            }
+
+            async init() {
+                // Hide loading screen
+                document.getElementById('loadingScreen').style.display = 'none';
+
+                // Show browser info
+                document.getElementById('browserInfoText').textContent = FileSystemManager.getBrowserInfo();
+
+                await this.fileManager.init();
+
+                // Check if we have a stored file handle
+                if (this.fileManager.hasFileSelected()) {
+                    await this.loadExistingFile();
+                } else {
+                    this.showWelcomeScreen();
+                }
+            }
+
+            showWelcomeScreen() {
+                document.getElementById('welcomeScreen').classList.remove('hidden');
+                document.getElementById('mainInterface').classList.add('hidden');
+            }
+
+            showMainInterface() {
+                document.getElementById('welcomeScreen').classList.add('hidden');
+                document.getElementById('mainInterface').classList.remove('hidden');
+                this.render();
+            }
+
+            async createNewFile() {
+                // Prompt for password
+                const password = await this.promptPassword('Set a password for your dashboard');
+                if (!password) return;
+
+                this.password = password;
+
+                // Create initial empty data
+                this.data = {
+                    tabs: [],
+                    metadata: {
+                        version: '1.0',
+                        lastModified: new Date().toISOString()
+                    }
+                };
+
+                // Save empty data to create file
+                const success = await this.save();
+                if (success) {
+                    this.showMainInterface();
+                }
+            }
+
+            async loadExistingFile() {
+                try {
+                    // Read encrypted data
+                    const encrypted = await this.fileManager.readData();
+                    if (!encrypted) {
+                        this.showWelcomeScreen();
+                        return;
+                    }
+
+                    // Prompt for password
+                    const password = await this.promptPassword('Enter your dashboard password');
+                    if (!password) {
+                        this.showWelcomeScreen();
+                        return;
+                    }
+
+                    // Decrypt data
+                    this.data = await EncryptionManager.decrypt(encrypted, password);
+                    this.password = password;
+
+                    this.showMainInterface();
+                } catch (error) {
+                    if (error.message.includes('password')) {
+                        this.showNotification('Wrong password!', 'error');
+                    } else {
+                        this.showNotification('Error loading data: ' + error.message, 'error');
+                    }
+                    this.showWelcomeScreen();
+                }
+            }
+
+            async changeFileLocation() {
+                if (confirm('Change file location? Your current data will be saved first.')) {
+                    await this.save();
+                    this.fileManager.clearFileHandle();
+                    this.showWelcomeScreen();
+                }
+            }
+
+            async save(isAutoSave = false) {
+                try {
+                    if (!this.password) {
+                        this.showNotification('No password set!', 'error');
+                        return false;
+                    }
+
+                    // Update metadata
+                    this.data.metadata.lastModified = new Date().toISOString();
+
+                    // Encrypt data
+                    const encrypted = await EncryptionManager.encrypt(this.data, this.password);
+
+                    // Write to file
+                    const success = await this.fileManager.writeData(encrypted);
+
+                    if (success) {
+                        this.isDirty = false;
+                        if (!isAutoSave) {
+                            this.showNotification('Data saved successfully!', 'success');
+                        }
+                        return true;
+                    } else {
+                        this.showNotification('Save failed', 'error');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Save error:', error);
+
+                    // If it's an auto-save and permission error, notify user to save manually
+                    if (isAutoSave && error.message.includes('Permission denied')) {
+                        this.showNotification('Changes saved locally. Click Save to persist to file.', 'error');
+                        return false;
+                    }
+
+                    this.showNotification('Error saving: ' + error.message, 'error');
+                    return false;
+                }
+            }
+
+            // Tab Management
+            addTab(name) {
+                const tab = {
+                    id: 'tab_' + Date.now(),
+                    name: name,
+                    columns: [],
+                    columnTypes: {},
+                    rows: []
+                };
+
+                this.data.tabs.push(tab);
+                this.currentTabId = tab.id;
+                this.isDirty = true;
+                this.render();
+            }
+
+            async deleteTab(tabId) {
+                const index = this.data.tabs.findIndex(t => t.id === tabId);
+                if (index !== -1) {
+                    this.data.tabs.splice(index, 1);
+                    if (this.currentTabId === tabId) {
+                        this.currentTabId = this.data.tabs[0]?.id || null;
+                    }
+                    this.isDirty = true;
+                    this.render();
+
+                    // Auto-save after deleting tab
+                    await this.save(true);
+                }
+            }
+
+            async deleteCurrentTab() {
+                if (!this.currentTabId) return;
+                if (confirm('Are you sure you want to delete this tab?')) {
+                    await this.deleteTab(this.currentTabId);
+                }
+            }
+
+            renameTab(tabId, newName) {
+                const tab = this.data.tabs.find(t => t.id === tabId);
+                if (tab) {
+                    tab.name = newName;
+                    this.isDirty = true;
+                    this.render();
+                }
+            }
+
+            selectTab(tabId) {
+                this.currentTabId = tabId;
+                this.render();
+            }
+
+            getCurrentTab() {
+                return this.data.tabs.find(t => t.id === this.currentTabId);
+            }
+
+            // Column Management
+            addColumn(columnName, columnType = 'text') {
+                const tab = this.getCurrentTab();
+                if (!tab) return;
+
+                if (tab.columns.includes(columnName)) {
+                    this.showNotification('Column already exists!', 'error');
+                    return;
+                }
+
+                tab.columns.push(columnName);
+
+                // Auto-detect type if not specified
+                if (columnType === 'text') {
+                    columnType = this.detectColumnType(columnName, null);
+                }
+
+                if (columnType !== 'text') {
+                    tab.columnTypes[columnName] = columnType;
+                }
+
+                // Add empty values to existing rows
+                tab.rows.forEach(row => {
+                    row[columnName] = '';
+                });
+
+                this.isDirty = true;
+                this.render();
+            }
+
+            async deleteColumn(columnName) {
+                const tab = this.getCurrentTab();
+                if (!tab) return;
+
+                const index = tab.columns.indexOf(columnName);
+                if (index !== -1) {
+                    tab.columns.splice(index, 1);
+                    delete tab.columnTypes[columnName];
+
+                    // Remove from all rows
+                    tab.rows.forEach(row => {
+                        delete row[columnName];
+                    });
+
+                    this.isDirty = true;
+                    this.render();
+
+                    // Auto-save after deleting column
+                    await this.save(true);
+                }
+            }
+
+            detectColumnType(columnName, sampleValue) {
+                // Check column name patterns
+                if (/password|pass|pwd|secret|key|token|auth/i.test(columnName)) {
+                    return 'password';
+                }
+                if (/url|link|website|site/i.test(columnName)) {
+                    return 'url';
+                }
+
+                // Check value format
+                if (sampleValue) {
+                    if (/^https?:\/\//i.test(sampleValue)) {
+                        return 'url';
+                    }
+                }
+
+                return 'text';
+            }
+
+            // Row Management
+            addRow(rowData) {
+                const tab = this.getCurrentTab();
+                if (!tab) return;
+
+                tab.rows.push(rowData);
+                this.isDirty = true;
+                this.render();
+            }
+
+            updateRow(rowIndex, rowData) {
+                const tab = this.getCurrentTab();
+                if (!tab) return;
+
+                tab.rows[rowIndex] = rowData;
+                this.isDirty = true;
+                this.render();
+            }
+
+            async deleteRow(rowIndex) {
+                const tab = this.getCurrentTab();
+                if (!tab) return;
+
+                tab.rows.splice(rowIndex, 1);
+                this.isDirty = true;
+                this.render();
+
+                // Auto-save after deleting row
+                await this.save(true);
+            }
+
+            // UI Rendering
+            render() {
+                this.renderTabs();
+                this.renderContent();
+            }
+
+            renderTabs() {
+                const tabsList = document.getElementById('tabsList');
+                tabsList.innerHTML = '';
+
+                this.data.tabs.forEach(tab => {
+                    const button = document.createElement('button');
+                    button.className = `tab-button w-full text-left px-4 py-2 rounded-lg ${tab.id === this.currentTabId ? 'active' : ''}`;
+                    button.textContent = tab.name;
+                    button.onclick = () => this.selectTab(tab.id);
+                    tabsList.appendChild(button);
+                });
+            }
+
+            renderContent() {
+                const noTabsMessage = document.getElementById('noTabsMessage');
+                const tabContent = document.getElementById('tabContent');
+
+                if (!this.currentTabId || this.data.tabs.length === 0) {
+                    noTabsMessage.classList.remove('hidden');
+                    tabContent.classList.add('hidden');
+                    return;
+                }
+
+                noTabsMessage.classList.add('hidden');
+                tabContent.classList.remove('hidden');
+
+                const tab = this.getCurrentTab();
+                document.getElementById('currentTabName').textContent = tab.name;
+
+                this.renderTable(tab);
+            }
+
+            renderTable(tab) {
+                const tableHeader = document.getElementById('tableHeader');
+                const tableBody = document.getElementById('tableBody');
+
+                // Clear existing content
+                tableHeader.innerHTML = '';
+                tableBody.innerHTML = '';
+
+                // Render headers
+                tab.columns.forEach(columnName => {
+                    const th = document.createElement('th');
+                    th.className = 'px-4 py-2 text-left border-b-2 border-gray-300';
+                    th.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span>${columnName}</span>
+                            <button onclick="app.deleteColumn('${columnName}')" class="text-red-600 hover:text-red-700 text-sm ml-2">×</button>
+                        </div>
+                    `;
+                    tableHeader.appendChild(th);
+                });
+
+                // Add action column
+                const actionTh = document.createElement('th');
+                actionTh.className = 'px-4 py-2 text-left border-b-2 border-gray-300';
+                actionTh.textContent = 'Actions';
+                tableHeader.appendChild(actionTh);
+
+                // Render rows
+                tab.rows.forEach((row, rowIndex) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b hover:bg-gray-50';
+
+                    tab.columns.forEach(columnName => {
+                        const td = document.createElement('td');
+                        td.className = 'px-4 py-2';
+
+                        const value = row[columnName] || '';
+                        const columnType = tab.columnTypes[columnName] || 'text';
+
+                        if (columnType === 'url' && value) {
+                            td.innerHTML = `<a href="${value}" target="_blank" class="text-blue-600 hover:underline">${value}</a>`;
+                        } else {
+                            td.textContent = value;
+                        }
+
+                        tr.appendChild(td);
+                    });
+
+                    // Action buttons
+                    const actionTd = document.createElement('td');
+                    actionTd.className = 'px-4 py-2';
+                    actionTd.innerHTML = `
+                        <button onclick="app.showEditRowModal(${rowIndex})" class="text-blue-600 hover:text-blue-700 mr-2">Edit</button>
+                        <button onclick="app.deleteRow(${rowIndex})" class="text-red-600 hover:text-red-700">Delete</button>
+                    `;
+                    tr.appendChild(actionTd);
+
+                    tableBody.appendChild(tr);
+                });
+
+                // Show message if no rows
+                if (tab.rows.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = tab.columns.length + 1;
+                    td.className = 'px-4 py-8 text-center text-gray-500';
+                    td.textContent = 'No data yet. Click "Add Row" to start.';
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                }
+            }
+
+            // Modals
+            showAddTabModal() {
+                const modal = this.createModal('Add Tab', `
+                    <input type="text" id="tabName" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="Tab name">
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="app.closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                        <button onclick="app.confirmAddTab()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add</button>
+                    </div>
+                `);
+                this.showModal(modal);
+            }
+
+            async confirmAddTab() {
+                const name = document.getElementById('tabName').value.trim();
+                if (name) {
+                    this.addTab(name);
+                    this.closeModal();
+
+                    // Auto-save after adding tab
+                    await this.save(true);
+                }
+            }
+
+            showRenameTabModal() {
+                const tab = this.getCurrentTab();
+                if (!tab) return;
+
+                const modal = this.createModal('Rename Tab', `
+                    <input type="text" id="newTabName" value="${tab.name}" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4">
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="app.closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                        <button onclick="app.confirmRenameTab()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Rename</button>
+                    </div>
+                `);
+                this.showModal(modal);
+            }
+
+            async confirmRenameTab() {
+                const newName = document.getElementById('newTabName').value.trim();
+                if (newName) {
+                    this.renameTab(this.currentTabId, newName);
+                    this.closeModal();
+
+                    // Auto-save after renaming tab
+                    await this.save(true);
+                }
+            }
+
+            showAddColumnModal() {
+                const modal = this.createModal('Add Column', `
+                    <input type="text" id="columnName" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="Column name">
+                    <select id="columnType" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4">
+                        <option value="text">Text</option>
+                        <option value="password">Password</option>
+                        <option value="url">URL</option>
+                    </select>
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="app.closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                        <button onclick="app.confirmAddColumn()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Add</button>
+                    </div>
+                `);
+                this.showModal(modal);
+            }
+
+            async confirmAddColumn() {
+                const name = document.getElementById('columnName').value.trim();
+                const type = document.getElementById('columnType').value;
+                if (name) {
+                    this.addColumn(name, type);
+                    this.closeModal();
+
+                    // Auto-save after adding column
+                    await this.save(true);
+                }
+            }
+
+            showAddRowModal() {
+                const tab = this.getCurrentTab();
+                if (!tab || tab.columns.length === 0) {
+                    this.showNotification('Add columns first!', 'error');
+                    return;
+                }
+
+                let fields = '';
+                tab.columns.forEach(columnName => {
+                    const columnType = tab.columnTypes[columnName] || 'text';
+                    fields += `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">${columnName}</label>
+                            <input type="${columnType === 'password' ? 'password' : 'text'}"
+                                   id="field_${columnName}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                                   placeholder="${columnName}">
+                        </div>
+                    `;
+                });
+
+                const modal = this.createModal('Add Row', `
+                    ${fields}
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="app.closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                        <button onclick="app.confirmAddRow()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add</button>
+                    </div>
+                `);
+                this.showModal(modal);
+            }
+
+            async confirmAddRow() {
+                const tab = this.getCurrentTab();
+                const rowData = {};
+
+                tab.columns.forEach(columnName => {
+                    rowData[columnName] = document.getElementById(`field_${columnName}`).value;
+                });
+
+                this.addRow(rowData);
+                this.closeModal();
+
+                // Auto-save after adding row
+                await this.save(true);
+            }
+
+            showEditRowModal(rowIndex) {
+                const tab = this.getCurrentTab();
+                const row = tab.rows[rowIndex];
+
+                let fields = '';
+                tab.columns.forEach(columnName => {
+                    const columnType = tab.columnTypes[columnName] || 'text';
+                    const value = row[columnName] || '';
+                    fields += `
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium mb-2">${columnName}</label>
+                            <input type="${columnType === 'password' ? 'password' : 'text'}"
+                                   id="field_${columnName}"
+                                   value="${value}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                    `;
+                });
+
+                const modal = this.createModal('Edit Row', `
+                    ${fields}
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="app.closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                        <button onclick="app.confirmEditRow(${rowIndex})" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
+                    </div>
+                `);
+                this.showModal(modal);
+            }
+
+            async confirmEditRow(rowIndex) {
+                const tab = this.getCurrentTab();
+                const rowData = {};
+
+                tab.columns.forEach(columnName => {
+                    rowData[columnName] = document.getElementById(`field_${columnName}`).value;
+                });
+
+                this.updateRow(rowIndex, rowData);
+                this.closeModal();
+
+                // Auto-save after editing row
+                await this.save(true);
+            }
+
+            showPasswordModal() {
+                const modal = this.createModal('Change Password', `
+                    <input type="password" id="newPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="New password">
+                    <input type="password" id="confirmPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="Confirm password">
+                    <div class="flex gap-2 justify-end">
+                        <button onclick="app.closeModal()" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                        <button onclick="app.confirmChangePassword()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">Change</button>
+                    </div>
+                `);
+                this.showModal(modal);
+            }
+
+            async confirmChangePassword() {
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+
+                if (!newPassword) {
+                    this.showNotification('Password cannot be empty', 'error');
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    this.showNotification('Passwords do not match', 'error');
+                    return;
+                }
+
+                this.password = newPassword;
+                this.closeModal();
+
+                // Save with new password (manual save with notification)
+                const saved = await this.save(false);
+                if (saved) {
+                    this.showNotification('Password changed and saved successfully!', 'success');
+                }
+            }
+
+            createModal(title, content) {
+                return `
+                    <div class="modal show" id="modal">
+                        <div class="modal-content">
+                            <h2 class="text-xl font-bold mb-4">${title}</h2>
+                            ${content}
+                        </div>
+                    </div>
+                `;
+            }
+
+            showModal(modalHTML) {
+                document.getElementById('modalContainer').innerHTML = modalHTML;
+            }
+
+            closeModal() {
+                document.getElementById('modalContainer').innerHTML = '';
+            }
+
+            promptPassword(message) {
+                return new Promise((resolve) => {
+                    const modal = this.createModal(message, `
+                        <input type="password" id="passwordInput" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="Enter password">
+                        <div class="flex gap-2 justify-end">
+                            <button onclick="app.resolvePasswordPrompt(null)" class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancel</button>
+                            <button onclick="app.resolvePasswordPrompt(document.getElementById('passwordInput').value)" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">OK</button>
+                        </div>
+                    `);
+                    this.showModal(modal);
+
+                    this.passwordPromiseResolve = resolve;
+                });
+            }
+
+            resolvePasswordPrompt(value) {
+                this.closeModal();
+                if (this.passwordPromiseResolve) {
+                    this.passwordPromiseResolve(value);
+                    this.passwordPromiseResolve = null;
+                }
+            }
+
+            showNotification(message, type = 'success') {
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+        }
+
+        // ============================================================================
+        // INITIALIZE APPLICATION
+        // ============================================================================
+        let app;
+        window.addEventListener('DOMContentLoaded', async () => {
+            app = new AdminApp();
+            await app.init();
+        });
+
+        // Warn before leaving if there are unsaved changes
+        window.addEventListener('beforeunload', (e) => {
+            if (app && app.isDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    </script>
+</body>
+</html>
